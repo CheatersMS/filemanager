@@ -25,8 +25,12 @@ private[filemanager] class S3Storage(accessKey: String, secretKey: String, bucke
   }
 
 
-  def add(fileName: String, stream: InputStream) = {
-    getResult(client.putObject(bucket, fileName, stream, new ObjectMetadata()), fileName)
+  def add(fileName: String, stream: InputStream, contentType:String) = {
+
+    val objectMetaData = new ObjectMetadata()
+    objectMetaData.setContentType(contentType)
+
+    getResult(client.putObject(bucket, fileName, stream, objectMetaData),fileName)
   }
 
   def getList(prefix: String = ""): Future[List[String]] = {

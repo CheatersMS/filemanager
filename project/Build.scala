@@ -17,7 +17,8 @@ object ApplicationBuild extends Build {
 
   val main = play.Project(appName, appVersion, appDependencies).settings(
     // Add your own project settings here      
-    organization   := "com.github.theodoreLee"  
-  )
+    organization   := "com.github.theodoreLee",  
+publishTo := Some(Resolver.file("Github Pages", Path.userHome / "git" / "theodoreLee.github.com" / "maven" asFile)(Patterns(true, Resolver.mavenStyleBasePattern)))
+ )
 
 }
