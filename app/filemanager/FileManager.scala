@@ -17,42 +17,60 @@ object FileManager {
   }
 
 
-  def resizeImage(filePart: FilePart[TemporaryFile], maxium_width_and_height:Int): Future[Array[Byte]] = {
+  def resizeImage(filePart: FilePart[TemporaryFile], maxium_width_and_height: Int): Future[Array[Byte]] = {
     val file = filePart.ref.file
     val contentType: String = filePart.contentType.getOrElse("application/octet-stream")
 
     resizeImage(contentType, file, maxium_width_and_height)
   }
 
-  def resizeImage(contentType: String, file: File, maxium_width_and_height:Int): Future[Array[Byte]] = future {
-    val ext = contentType.split("/")(1)
-
-    // Image I/O has built-in support for GIF, PNG, JPEG, BMP, and WBMP
-    List("GIF", "PNG", "JPEG", "BMP", "WBMP").contains(ext.toUpperCase) match {
-      case false =>
-        throw new IllegalArgumentException("Unmatchable content type")
-      case true =>
-        // resize the image
-        val bufferedImage: BufferedImage = ImageIO.read(file)
-
-        val resize = bufferedImage.getHeight() min bufferedImage.getWidth() min maxium_width_and_height
-
-        val thumbnail: BufferedImage = Scalr.resize(bufferedImage, resize)
-
-        val byteArrayOutputStream: ByteArrayOutputStream = new ByteArrayOutputStream()
-
-        ImageIO.write(thumbnail, ext, byteArrayOutputStream)
-
-        byteArrayOutputStream.toByteArray()
+  def resizeImage(contentType: String, byteArray: Array[Byte], maxium_width_and_height: Int): Future[Array[Byte]] = {
+    for {
+      bufferedImage <- future(ImageIO.read(new ByteArrayInputStream(byteArray)))
+      result <- resizeImage(contentType, bufferedImage, maxium_width_and_height)
+    } yield {
+      result
     }
   }
 
-
-  def upload(filePart: FilePart[TemporaryFile], path: String = "")(implicit storage: Storage): Future[String] = {
-    storage.add(path + filePart.filename, filePart.ref.file)
+  def resizeImage(contentType: String, file: File, maxium_width_and_height: Int): Future[Array[Byte]] = {
+    for {
+      bufferedImage <- future(ImageIO.read(file))
+      result <- resizeImage(contentType, bufferedImage, maxium_width_and_height)
+    } yield {
+      result
+    }
   }
 
-  def upload(fileName:String,byteArray:Array[Byte],contentType:String)(implicit storage: Storage): Future[String]= {
+  private def resizeImage(contentType: String, bufferedImage: BufferedImage, maxium_width_and_height: Int): Future[Array[Byte]] =
+    future {
+      val ext = contentType.split("/")(1)
+
+      // Image I/O has built-in support for GIF, PNG, JPEG, BMP, and WBMP
+      List("GIF", "PNG", "JPEG", "BMP", "WBMP").contains(ext.toUpperCase) match {
+        case false =>
+          throw new IllegalArgumentException("Unmatchable content type")
+        case true =>
+          val resize = bufferedImage.getHeight() min bufferedImage.getWidth() min maxium_width_and_height
+
+          val thumbnail: BufferedImage = Scalr.resize(bufferedImage, resize)
+
+          val byteArrayOutputStream: ByteArrayOutputStream = new ByteArrayOutputStream()
+
+          ImageIO.write(thumbnail, ext, byteArrayOutputStream)
+
+          byteArrayOutputStream.toByteArray()
+      }
+    }
+
+
+  def upload[A](filePart: FilePart[A], path: String = "")(implicit storage: Storage): Future[String] =
+    filePart.ref match {
+      case tempFile:TemporaryFile => storage.add(path + filePart.filename, tempFile.file)
+      case _ => Future.failed(new IllegalArgumentException("file part is not a file"))
+    }
+
+  def upload(fileName: String, byteArray: Array[Byte], contentType: String)(implicit storage: Storage): Future[String] = {
     storage.add(fileName, new ByteArrayInputStream(byteArray), contentType)
   }
 
